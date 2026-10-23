@@ -1,0 +1,5 @@
+﻿/* @highloader {"headers":{"X-Tenant":"sandbox","X-Debug":null}} */
+{
+  // Имя файла не меняет метод или URL.
+  "message": "Пример с заголовками из файла",
+}

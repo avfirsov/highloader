@@ -1,0 +1,65 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          architecture: x64
+          cache: false
+      - name: Build Windows executable
+        run: ./scripts/build.ps1
+      - name: Test frontend
+        working-directory: web
+        run: |
+          npm.cmd test -- --run
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed' }
+      - name: Check offline report
+        run: |
+          node web/scripts/check-report-runtime.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Offline report check failed' }
+      - name: Test and vet Go
+        run: |
+          $env:GOCACHE = Join-Path $PWD '.cache/go-build'
+          $env:GOMODCACHE = Join-Path $PWD '.cache/go-mod'
+          $env:GOTOOLCHAIN = 'local'
+          $env:CGO_ENABLED = '0'
+          go test ./...
+          if ($LASTEXITCODE -ne 0) { throw 'Go tests failed' }
+          go vet ./...
+          if ($LASTEXITCODE -ne 0) { throw 'Go vet failed' }
+      - name: Calculate executable checksum
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath dist/highloader.exe).Hash.ToLowerInvariant()
+          "$hash  highloader.exe" | Set-Content -Encoding ascii -LiteralPath dist/highloader.exe.sha256
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v7
+        with:
+          name: highloader-windows-x64
+          path: |
+            dist/highloader.exe
+            dist/highloader.exe.sha256
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,8 @@
+.cache/
+dist/
+web/node_modules/
+web/dist/
+web/report-dist/
+logs/
+*.test.exe
+coverage.out
